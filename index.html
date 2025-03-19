@@ -122,7 +122,7 @@
 
     // Load the Teachable Machine model
     async function loadModel() {
-      const modelUrl = 'https://github.com/Kean1010/laksa/model/model.json'; // Update with your hosted model URL
+      const modelUrl = './model/model.json'; // Update with your hosted model URL
       const model = await tf.loadLayersModel(modelUrl);
       return model;
     }
