@@ -88,6 +88,198 @@
     let currentFacingMode = 'environment'; // Start with the rear camera
     let stream;
     let isSpeechEnabled = true; // Speech is enabled by default
+    let lastDetectedClass = null; // Track the last detected food item
+
+    // Stories for Chicken Rice and Laksa
+    const stories = {
+      'Chicken Rice': "Chicken Rice is a popular dish in Singapore and Malaysia...",
+      'Laksa': "Laksa is a spicy noodle soup popular in Southeast Asia..."
+    };
+
+    // Function to set up the camera
+    async function setupCamera(facingMode = 'environment') {
+      try {
+        // Stop the previous stream if it exists
+        if (stream) {
+          const tracks = stream.getTracks();
+          tracks.forEach(track => track.stop());
+        }
+
+        // Get the new camera stream
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode }
+        });
+
+        cameraFeed.srcObject = stream;
+        return new Promise((resolve) => {
+          cameraFeed.onloadedmetadata = () => resolve(cameraFeed);
+        });
+      } catch (error) {
+        console.error('Error accessing the camera:', error);
+        statusElement.textContent = 'Camera access denied or unavailable.';
+      }
+    }
+
+    // Load the Teachable Machine model
+    async function loadModel() {
+      const modelUrl = 'https://github.com/Kean1010/laksa/model/model.json'; // Update with your hosted model URL
+      const model = await tf.loadLayersModel(modelUrl);
+      return model;
+    }
+
+    // Function to narrate text using Web Speech API
+    function speak(text) {
+      if (!isSpeechEnabled) return; // Skip speech if disabled
+      const utterance = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Start detection
+    async function startDetection() {
+      const model = await loadModel();
+
+      setInterval(async () => {
+        if (!cameraFeed.srcObject) return;
+
+        // Preprocess the image
+        const tensor = tf.browser.fromPixels(cameraFeed)
+          .resizeNearestNeighbor([224, 224]) // Resize to match the input size of the model
+          .div(255.0) // Normalize pixel values to [0, 1]
+          .expandDims(); // Add batch dimension
+
+        // Predict
+        const predictions = await model.predict(tensor).data();
+        const classes = ['Chicken Rice', 'Laksa']; // Classes in the same order as Teachable Machine
+        const predictedClassIndex = predictions.indexOf(Math.max(...predictions));
+        const predictedClass = classes[predictedClassIndex];
+
+        // Check if the detected class is valid and different from the last detection
+        if (predictedClass && stories[predictedClass] && predictedClass !== lastDetectedClass) {
+          lastDetectedClass = predictedClass; // Update the last detected class
+          statusElement.textContent = `Detected: ${predictedClass}`;
+          storyElement.textContent = stories[predictedClass];
+          speak(stories[predictedClass]); // Narrate the story
+        } else if (!stories[predictedClass]) {
+          lastDetectedClass = null; // Reset if no valid food item is detected
+          statusElement.textContent = 'Scanning...';
+          storyElement.textContent = '';
+        }
+      }, 1000); // Detect every second
+    }
+
+    // Switch camera (front/rear)
+    switchCameraButton.addEventListener('click', async () => {
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      await setupCamera(currentFacingMode);
+      statusElement.textContent = `Switched to ${currentFacingMode === 'environment' ? 'rear' : 'front'} camera`;
+    });
+
+    // Toggle speech functionality
+    toggleSpeechButton.addEventListener('click', () => {
+      isSpeechEnabled = !isSpeechEnabled;
+      toggleSpeechButton.textContent = isSpeechEnabled ? 'Disable Speech' : 'Enable Speech';
+    });
+
+    // Initialize the app
+    async function init() {
+      await setupCamera(currentFacingMode);
+      startDetection();
+    }
+
+    // Start the app
+    init();
+  </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food History App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f5f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    #cameraFeed {
+      width: 100%;
+      max-width: 600px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      margin: 20px auto;
+      display: block;
+    }
+
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    #story {
+      font-size: 16px;
+      color: #555;
+      margin: 20px auto;
+      max-width: 600px;
+      text-align: left;
+      line-height: 1.5;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>Food History App</h1>
+  <div id="status">Initializing...</div>
+
+  <!-- Camera Feed -->
+  <video id="cameraFeed" autoplay playsinline></video>
+
+  <!-- Story Display -->
+  <div id="story"></div>
+
+  <!-- Buttons -->
+  <button id="switchCamera">Switch Camera</button>
+  <button id="toggleSpeech">Disable Speech</button>
+
+  <!-- Include TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <!-- Main Script -->
+  <script>
+    // DOM Elements
+    const cameraFeed = document.getElementById('cameraFeed');
+    const statusElement = document.getElementById('status');
+    const storyElement = document.getElementById('story');
+    const switchCameraButton = document.getElementById('switchCamera');
+    const toggleSpeechButton = document.getElementById('toggleSpeech');
+
+    // Variables
+    let currentFacingMode = 'environment'; // Start with the rear camera
+    let stream;
+    let isSpeechEnabled = true; // Speech is enabled by default
 
     // Stories for Chicken Rice and Laksa
     const stories = {
