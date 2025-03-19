@@ -70,6 +70,7 @@
 
   <!-- Buttons -->
   <button id="switchCamera">Switch Camera</button>
+  <button id="toggleSpeech">Disable Speech</button>
 
   <!-- Include TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
@@ -81,16 +82,18 @@
     const statusElement = document.getElementById('status');
     const storyElement = document.getElementById('story');
     const switchCameraButton = document.getElementById('switchCamera');
+    const toggleSpeechButton = document.getElementById('toggleSpeech');
+
+    // Variables
+    let currentFacingMode = 'environment'; // Start with the rear camera
+    let stream;
+    let isSpeechEnabled = true; // Speech is enabled by default
 
     // Stories for Chicken Rice and Laksa
     const stories = {
       'Chicken Rice': "Chicken Rice is a popular dish in Singapore and Malaysia...",
       'Laksa': "Laksa is a spicy noodle soup popular in Southeast Asia..."
     };
-
-    // Variables
-    let currentFacingMode = 'environment'; // Start with the rear camera
-    let stream;
 
     // Function to set up the camera
     async function setupCamera(facingMode = 'environment') {
@@ -123,6 +126,13 @@
       return model;
     }
 
+    // Function to narrate text using Web Speech API
+    function speak(text) {
+      if (!isSpeechEnabled) return; // Skip speech if disabled
+      const utterance = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utterance);
+    }
+
     // Start detection
     async function startDetection() {
       const model = await loadModel();
@@ -146,6 +156,7 @@
         if (predictedClass && stories[predictedClass]) {
           statusElement.textContent = `Detected: ${predictedClass}`;
           storyElement.textContent = stories[predictedClass];
+          speak(stories[predictedClass]); // Narrate the story
         } else {
           statusElement.textContent = 'Scanning...';
           storyElement.textContent = '';
@@ -158,6 +169,12 @@
       currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
       await setupCamera(currentFacingMode);
       statusElement.textContent = `Switched to ${currentFacingMode === 'environment' ? 'rear' : 'front'} camera`;
+    });
+
+    // Toggle speech functionality
+    toggleSpeechButton.addEventListener('click', () => {
+      isSpeechEnabled = !isSpeechEnabled;
+      toggleSpeechButton.textContent = isSpeechEnabled ? 'Disable Speech' : 'Enable Speech';
     });
 
     // Initialize the app
