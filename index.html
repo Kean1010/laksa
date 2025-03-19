@@ -41,6 +41,21 @@
       text-align: left;
       line-height: 1.5;
     }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+    }
   </style>
 </head>
 <body>
@@ -53,6 +68,9 @@
   <!-- Story Display -->
   <div id="story"></div>
 
+  <!-- Buttons -->
+  <button id="switchCamera">Switch Camera</button>
+
   <!-- Include TensorFlow.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
 
@@ -62,17 +80,32 @@
     const cameraFeed = document.getElementById('cameraFeed');
     const statusElement = document.getElementById('status');
     const storyElement = document.getElementById('story');
+    const switchCameraButton = document.getElementById('switchCamera');
 
     // Stories for Chicken Rice and Laksa
     const stories = {
-      'Chicken Rice': "Chicken Rice is a popular dish in Singapore and Malaysia. It consists of succulent poached chicken served with fragrant rice cooked in chicken broth. The dish is often accompanied by chili sauce, cucumber slices, and soy sauce.",
-      'Laksa': "Laksa is a spicy noodle soup popular in Southeast Asia. It originated from the Peranakan culture in Singapore and Malaysia. The dish combines Chinese and Malay influences, with a rich coconut milk-based broth and rice noodles."
+      'Chicken Rice': "Chicken Rice is a popular dish in Singapore and Malaysia...",
+      'Laksa': "Laksa is a spicy noodle soup popular in Southeast Asia..."
     };
 
+    // Variables
+    let currentFacingMode = 'environment'; // Start with the rear camera
+    let stream;
+
     // Function to set up the camera
-    async function setupCamera() {
+    async function setupCamera(facingMode = 'environment') {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // Stop the previous stream if it exists
+        if (stream) {
+          const tracks = stream.getTracks();
+          tracks.forEach(track => track.stop());
+        }
+
+        // Get the new camera stream
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode }
+        });
+
         cameraFeed.srcObject = stream;
         return new Promise((resolve) => {
           cameraFeed.onloadedmetadata = () => resolve(cameraFeed);
@@ -85,7 +118,7 @@
 
     // Load the Teachable Machine model
     async function loadModel() {
-      const modelUrl = 'https://github.com/Kean1010/laksa/model/model.json'; // Update with your hosted model URL
+      const modelUrl = './model/model.json'; // Update with your hosted model URL
       const model = await tf.loadLayersModel(modelUrl);
       return model;
     }
@@ -120,9 +153,16 @@
       }, 1000); // Detect every second
     }
 
+    // Switch camera (front/rear)
+    switchCameraButton.addEventListener('click', async () => {
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      await setupCamera(currentFacingMode);
+      statusElement.textContent = `Switched to ${currentFacingMode === 'environment' ? 'rear' : 'front'} camera`;
+    });
+
     // Initialize the app
     async function init() {
-      await setupCamera();
+      await setupCamera(currentFacingMode);
       startDetection();
     }
 
