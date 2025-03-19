@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Food History App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f5f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    #cameraFeed {
+      width: 100%;
+      max-width: 600px;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      margin: 20px auto;
+      display: block;
+    }
+
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    #story {
+      font-size: 16px;
+      color: #555;
+      margin: 20px auto;
+      max-width: 600px;
+      text-align: left;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <h1>Food History App</h1>
+  <div id="status">Initializing...</div>
+
+  <!-- Camera Feed -->
+  <video id="cameraFeed" autoplay playsinline></video>
+
+  <!-- Story Display -->
+  <div id="story"></div>
+
+  <!-- Include TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+  <!-- Main Script -->
+  <script>
+    // DOM Elements
+    const cameraFeed = document.getElementById('cameraFeed');
+    const statusElement = document.getElementById('status');
+    const storyElement = document.getElementById('story');
+
+    // Stories for Chicken Rice and Laksa
+    const stories = {
+      'Chicken Rice': "Chicken Rice is a popular dish in Singapore and Malaysia. It consists of succulent poached chicken served with fragrant rice cooked in chicken broth. The dish is often accompanied by chili sauce, cucumber slices, and soy sauce.",
+      'Laksa': "Laksa is a spicy noodle soup popular in Southeast Asia. It originated from the Peranakan culture in Singapore and Malaysia. The dish combines Chinese and Malay influences, with a rich coconut milk-based broth and rice noodles."
+    };
+
+    // Function to set up the camera
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        cameraFeed.srcObject = stream;
+        return new Promise((resolve) => {
+          cameraFeed.onloadedmetadata = () => resolve(cameraFeed);
+        });
+      } catch (error) {
+        console.error('Error accessing the camera:', error);
+        statusElement.textContent = 'Camera access denied or unavailable.';
+      }
+    }
+
+    // Load the Teachable Machine model
+    async function loadModel() {
+      const modelUrl = 'https://github.com/Kean1010/laksa/model/model.json'; // Update with your hosted model URL
+      const model = await tf.loadLayersModel(modelUrl);
+      return model;
+    }
+
+    // Start detection
+    async function startDetection() {
+      const model = await loadModel();
+
+      setInterval(async () => {
+        if (!cameraFeed.srcObject) return;
+
+        // Preprocess the image
+        const tensor = tf.browser.fromPixels(cameraFeed)
+          .resizeNearestNeighbor([224, 224]) // Resize to match the input size of the model
+          .div(255.0) // Normalize pixel values to [0, 1]
+          .expandDims(); // Add batch dimension
+
+        // Predict
+        const predictions = await model.predict(tensor).data();
+        const classes = ['Chicken Rice', 'Laksa']; // Classes in the same order as Teachable Machine
+        const predictedClassIndex = predictions.indexOf(Math.max(...predictions));
+        const predictedClass = classes[predictedClassIndex];
+
+        // Update UI
+        if (predictedClass && stories[predictedClass]) {
+          statusElement.textContent = `Detected: ${predictedClass}`;
+          storyElement.textContent = stories[predictedClass];
+        } else {
+          statusElement.textContent = 'Scanning...';
+          storyElement.textContent = '';
+        }
+      }, 1000); // Detect every second
+    }
+
+    // Initialize the app
+    async function init() {
+      await setupCamera();
+      startDetection();
+    }
+
+    // Start the app
+    init();
+  </script>
+</body>
+</html>
